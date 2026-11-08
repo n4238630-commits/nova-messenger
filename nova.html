@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>NOVA — общая сеть</title>
+<style>
+  :root{--bg:#0a0e1a;--card:#141b2e;--card2:#1c2540;--acc:#5b8cff;--tx:#e8edf7;--dim:#7d8ba8;--ok:#4ade80;--err:#ff7b7b}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,sans-serif;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+  .scr{display:none;flex-direction:column;flex:1;overflow:hidden}
+  .scr.on{display:flex}
+  .logo{font-size:2rem;font-weight:900;letter-spacing:.25em;color:var(--acc);text-align:center;margin:0}
+  .btn{background:var(--acc);color:#04070f;border:0;border-radius:14px;padding:14px;font-weight:800;width:100%;font-size:1rem;cursor:pointer}
+  .btn:disabled{opacity:.5}
+  input{width:100%;padding:12px;border-radius:12px;border:1px solid #2a3554;background:#0d1224;color:var(--tx);margin:6px 0;font-size:1rem;outline:none}
+  input:focus{border-color:var(--acc)}
+  .card{background:var(--card);border-radius:20px;padding:22px;margin:auto;width:min(92vw,400px)}
+  .hdr{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card);flex-shrink:0}
+  .t{font-weight:800;font-size:1.05rem}
+  .row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid #1a2340;cursor:pointer}
+  .row:active{background:var(--card2)}
+  .ava{width:46px;height:46px;border-radius:50%;color:#04070f;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;font-size:1.1rem}
+  .dot{width:10px;height:10px;border-radius:50%;background:#2c3860;flex-shrink:0}
+  .dot.on{background:var(--ok);box-shadow:0 0 6px var(--ok)}
+  .dim{color:var(--dim);font-size:.85rem}
+  .icon-btn{background:var(--card2);border:0;border-radius:50%;width:42px;height:42px;font-size:1.15rem;flex-shrink:0;cursor:pointer;color:var(--tx)}
+  #msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:6px;-webkit-overflow-scrolling:touch}
+  .mrow{display:flex}
+  .mrow.me{justify-content:flex-end}
+  .msg{max-width:78%;padding:9px 13px;border-radius:16px;background:var(--card2);word-break:break-word}
+  .mrow.me .msg{background:var(--acc);color:#04070f;border-bottom-right-radius:4px}
+  .mrow.ot .msg{border-bottom-left-radius:4px}
+  .mtime{font-size:.66rem;opacity:.6;text-align:right;margin-top:2px}
+  .bar{display:flex;gap:8px;padding:10px 12px;background:var(--card);flex-shrink:0}
+  #inp{flex:1;border-radius:22px;border:1px solid #2a3554;background:#0d1224;color:var(--tx);padding:12px 16px;font-size:1rem;outline:none;min-height:46px;margin:0}
+  .sl{padding:8px 16px;font-size:.85rem;color:var(--dim);min-height:20px}
+  .sl b{color:var(--ok);font-weight:600}
+  .st{font-size:.78rem;color:var(--dim)}
+  .st b{color:var(--ok);font-weight:600}
+  .sect{padding:10px 16px 4px;font-size:.8rem;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:.08em}
+  .tabbar{display:flex;flex-shrink:0;border-top:1px solid #1a2340;background:var(--card)}
+  .tab{flex:1;padding:12px;text-align:center;cursor:pointer;color:var(--dim);font-size:.9rem;font-weight:700}
+  .tab.on{color:var(--acc);border-top:2px solid var(--acc)}
+  .pbar{height:3px;background:var(--card2);border-radius:2px;overflow:hidden;margin-top:8px}
+  .pbar>div{height:100%;background:var(--acc);width:0;transition:width .3s}
+</style>
+</head>
+<body>
+
+<!-- ВХОД -->
+<div id="scr-auth" class="scr on">
+  <div class="card">
+    <h1 class="logo">NOVA</h1>
+    <p class="dim" style="text-align:center;margin:14px 0">Общая сеть: заходи и пиши любому человеку</p>
+    <input id="a-user" placeholder="Придумай юз, например: maks" autocomplete="off">
+    <input id="a-pass" placeholder="Придумай пароль (4+ символов)" type="password" autocomplete="off">
+    <button class="btn" id="a-btn" onclick="startApp()">Войти в сеть</button>
+    <div class="sl" id="a-status" style="text-align:center"></div>
+    <div class="pbar"><div id="a-pbar"></div></div>
+  </div>
+</div>
+
+<!-- СПИСОК ЛЮДЕЙ / ЧАТЫ -->
+<div id="scr-list" class="scr">
+  <div class="hdr">
+    <div class="ava" id="me-ava">?</div>
+    <div class="t" style="flex:1">NOVA</div>
+    <button class="icon-btn" style="font-size:.95rem" onclick="logout()">⎋</button>
+  </div>
+  <div class="sl" id="me-line">…</div>
+  <input id="search" placeholder="🔍 Поиск людей" oninput="drawCurrent()"
+    style="margin:0 12px 8px;width:calc(100% - 24px);padding:10px 14px;border-radius:12px">
+  <div id="list-body" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
+  <div class="tabbar">
+    <div class="tab on" id="tab-people" onclick="setTab('people')">👥 Люди</div>
+    <div class="tab" id="tab-chats" onclick="setTab('chats')">💬 Чаты</div>
+  </div>
+</div>
+
+<!-- ЧАТ -->
+<div id="scr-chat" class="scr">
+  <div class="hdr">
+    <button class="icon-btn" onclick="backList()">←</button>
+    <div class="ava" id="c-ava" style="width:38px;height:38px;font-size:.95rem">?</div>
+    <div style="flex:1">
+      <div class="t" style="font-size:1rem" id="c-title">@...</div>
+      <div class="st" id="c-status"></div>
+    </div>
+  </div>
+  <div id="msgs"></div>
+  <div class="bar">
+    <input id="inp" placeholder="Сообщение…" autocomplete="off" onkeydown="if(event.key==='Enter')sendMsg()">
+    <button class="icon-btn" onclick="sendMsg()">➤</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const BROKERS = [
+  'wss://broker.emqx.io:8084/mqtt',
+  'wss://broker.hivemq.com:8884/mqtt'
+];
+const P = 'nova-public-v1-';              // одна общая сеть для всех
+const HB_MS = 2000, OFFLINE_MS = 6000, HIST_LIMIT = 100, BROKER_WAIT = 4000;
+
+let me=null, client=null, chatWith=null, ready=false, tab='people';
+const lastSeen={};          // юз -> время сигнала
+const people={};            // юз -> {user, seen} — все, кого видим в сети
+let contactsCache=[];
+
+const LS = {
+  get:(k,d)=>{try{const v=localStorage.getItem('nova_'+k);return v===null?d:JSON.parse(v);}catch(e){return d;}},
+  set:(k,v)=>{try{localStorage.setItem('nova_'+k,JSON.stringify(v));}catch(e){}}
+};
+const esc = s => {const d=document.createElement('div');d.textContent=s;return d.innerHTML;};
+const show = id => {document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));$(id).classList.add('on');};
+const chatKey = u => 'chat_'+u.toLowerCase();
+const chatTopic = (a,b) => P+'chat-'+[a.toLowerCase(),b.toLowerCase()].sort().join('-');
+const presTopic = u => P+'pres-'+u.toLowerCase();
+const userTopic = u => P+'user-'+u.toLowerCase();   // «визитка» пользователя
+const msgId = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const nowTime = () => new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+function hueOf(u){let h=0;for(const c of u.toLowerCase())h=(h*31+c.charCodeAt(0))%360;return h;}
+function avaCss(u){return 'background:hsl('+hueOf(u)+',70%,60%)';}
+
+function loadScript(src){
+  return new Promise((ok,fail)=>{
+    const s=document.createElement('script');
+    s.src=src;s.onload=ok;s.onerror=fail;
+    document.head.appendChild(s);
+  });
+}
+async function ensureMqtt(){
+  if(window.mqtt) return true;
+  const urls=[
+    'https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js',
+    'https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js'
+  ];
+  for(const u of urls){ try{await loadScript(u); if(window.mqtt) return true;}catch(e){} }
+  return false;
+}
+
+/* ===== Вход ===== */
+async function startApp(){
+  const btn=$('a-btn'), st=$('a-status'), pb=$('a-pbar');
+  const u=$('a-user').value.trim();
+  const pw=$('a-pass').value;
+  if(!/^[a-zа-яё0-9_]{3,20}$/i.test(u)){
+    st.style.color='var(--err)'; st.textContent='Юз: 3–20 символов, буквы, цифры, _'; return;
+  }
+  if(pw.length<4){
+    st.style.color='var(--err)'; st.textContent='Пароль: минимум 4 символа'; return;
+  }
+  btn.disabled=true; st.style.color='var(--dim)'; st.textContent='Готовлю сеть…'; pb.style.width='20%';
+
+  if(!await ensureMqtt()){
+    st.style.color='var(--err)'; st.textContent='Нет интернета. Включи сеть и нажми ещё раз.';
+    pb.style.width='0'; btn.disabled=false; return;
+  }
+  pb.style.width='50%'; st.textContent='Проверяю юз и подключаюсь…';
+
+  /* Занят ли юз? читаем его «визитку» с сервера */
+  const taken = await checkUserTaken(u, pw);
+  if(taken){
+    st.style.color='var(--err)';
+    st.textContent='Юз «'+u+'» уже занят другим паролем. Придумай другой или введи свой пароль.';
+    pb.style.width='0'; btn.disabled=false; return;
+  }
+
+  me={user:u}; LS.set('me',me);
+  LS.set('pw_'+u.toLowerCase(),pw);          // пароль запоминаем на этом устройстве
+  contactsCache=LS.get('contacts',[]);
+
+  pb.style.width='75%';
+  const ok=await connect();
+  if(!ok){
+    st.style.color='var(--err)';
+    st.textContent='Серверы не ответили. Нажми кнопку ещё раз.';
+    btn.disabled=false; pb.style.width='0'; return;
+  }
+  pb.style.width='100%'; st.textContent='Добро пожаловать в сеть!';
+  setTimeout(()=>{ show('scr-list'); drawCurrent(); btn.disabled=false; pb.style.width='0'; },150);
+}
+
+/* Проверка: занят ли юз другим паролем.
+   Читаем retained-визитку юза: если она есть и хеш пароля не совпал — занят. */
+function checkUserTaken(u,pw){
+  return new Promise((resolve)=>{
+    const probe=mqtt.connect(BROKERS[0],{connectTimeout:4000,clean:true});
+    let settled=false;
+    const done=(v)=>{ if(!settled){settled=true; try{probe.end(true);}catch(e){} resolve(v);} };
+    probe.on('error',()=>done(false));
+    const t=setTimeout(()=>done(false),5000);
+    probe.on('connect',()=>{
+      const topic=userTopic(u);
+      const onMsg=(tp,pay)=>{
+        if(tp!==topic) return;
+        clearTimeout(t);
+        try{
+          const info=JSON.parse(pay.toString());
+          done(info.ph!==hash(pw));   // есть визитка и пароль чужой => занят
+        }catch(e){ done(true); }
+      };
+      probe.on('message',onMsg);
+      probe.subscribe(topic);
+      /* если за 1.5 сек визитка не пришла — юз свободен */
+      setTimeout(()=>{ if(!settled){ clearTimeout(t); done(false); } },1500);
+    });
+  });
+}
+function hash(s){
+  let h=5381;
+  for(let i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))>>>0;
+  return h.toString(36);
+}
+
+function logout(){
+  if(client&&me){
+    try{client.publish(presTopic(me.user),JSON.stringify({off:true}));}catch(e){}
+    try{client.publish(userTopic(me.user),'',{retain:true});}catch(e){}  // снимаем визитку
+    try{client.end(true);}catch(e){}
+  }
+  ready=false; LS.set('me',null); me=null; chatWith=null;
+  show('scr-auth');
+  $('a-status').textContent=''; $('a-pbar').style.width='0';
+}
+
+/* ===== Сеть ===== */
+function connect(){
+  return new Promise((resolve)=>{
+    let settled=false;
+    const fin=ok=>{ if(!settled){settled=true;resolve(ok);} };
+    const openBroker=i=>{
+      if(i>=BROKERS.length){ fin(false); return; }
+      if(client) try{client.end(true);}catch(e){}
+      client=mqtt.connect(BROKERS[i],{
+        keepalive:15,reconnectPeriod:2000,connectTimeout:4000,clean:true,
+        clientId:'nova-'+me.user.toLowerCase()+'-'+Math.random().toString(36).slice(2,8)
+      });
+      client.on('connect',()=>{
+        ready=true; setMeLine(true);
+        client.subscribe(P+'pres-#');      // статусы всех
+        client.subscribe(P+'user-#');      // визитки всех
+        contactsCache.forEach(c=>client.subscribe(chatTopic(me.user,c.user)));
+        /* выкладываем свою визитку: юз + хеш пароля */
+        client.publish(userTopic(me.user),JSON.stringify({user:me.user,ph:hash(LS.get('pw_'+me.user.toLowerCase(),''))}),{retain:true});
+        announce(true);
+        syncAll();
+        fin(true);
+      });
+      client.on('error',()=>fin(false));
+      client.on('close',()=>{ready=false; if(me) setMeLine(false,'нет связи');});
+      client.on('reconnect',()=>{ if(me) setMeLine(false,'переподключение…'); });
+      client.on('message',onMessage);
+      setTimeout(()=>{ if(!settled){ ready=false; try{client.end(true);}catch(e){} openBroker(i+1); } },BROKER_WAIT);
+    };
+    openBroker(0);
+  });
+}
+
+function onMessage(topic,payload){
+  let m; try{m=JSON.parse(payload.toString());}catch(e){return;}
+  if(topic.startsWith(P+'user-')){
+    const u=topic.slice((P+'user-').length);
+    if(m&&m.user&&!people[u]) { people[u]={user:m.user}; if(tab==='people') drawCurrent(); }
+    return;
+  }
+  if(topic.startsWith(P+'pres-')){
+    const u=topic.slice((P+'pres-').length);
+    lastSeen[u]=m.off?0:Date.now();
+    updateDots(); updateChatStatus();
+    return;
+  }
+  if(m.hist){ mergeHistory(m.hist,topic); return; }
+}
+
+/* своё присутствие: объявляем в общий статус + сердцебиение */
+function announce(on){
+  if(!client||!client.connected||!me) return;
+  client.publish(presTopic(me.user),JSON.stringify(on?{hb:true}:{off:true}));
+}
+
+function mergeHistory(hist,topic){
+  const pair=topic.slice((P+'chat-').length).split('-');
+  const other=pair.find(x=>x!==me.user.toLowerCase());
+  if(!other) return;
+  const key=chatKey(other), map={};
+  LS.get(key,[]).forEach(x=>map[x.id]=x);
+  hist.forEach(x=>{ if(!map[x.id]) map[x.id]=x; });
+  const merged=Object.values(map).sort((a,b)=>a.ts-b.ts).slice(-HIST_LIMIT);
+  LS.set(key,merged);
+  const isNew=!contactsCache.find(c=>c.user.toLowerCase()===other);
+  if(isNew&&merged.length){
+    contactsCache.push({user:other}); LS.set('contacts',contactsCache);
+    client.subscribe(chatTopic(me.user,other));
+    if(tab==='chats') drawCurrent();
+  }
+  if(chatWith&&chatWith.user.toLowerCase()===other){
+    $('msgs').innerHTML='';
+    merged.forEach(drawMsg);
+  }
+}
+function syncAll(){ contactsCache.forEach(c=>syncHistory(c.user)); }
+function syncHistory(u){
+  if(!client||!client.connected) return;
+  client.publish(chatTopic(me.user,u),JSON.stringify({hist:LS.get(chatKey(u),[]).slice(-HIST_LIMIT)}),{retain:true});
+}
+function pushTo(m){
+  m.id=msgId(); m.ts=Date.now(); m.time=nowTime();
+  const u=chatWith.user;
+  LS.set(chatKey(u),[...LS.get(chatKey(u),[]),m]);
+  drawMsg(m);
+  if(client&&client.connected) syncHistory(u);
+  else alert('Нет связи. Сообщение сохранено и уйдёт при подключении.');
+}
+
+/* Один таймер: сердцебиение, статусы, чистка списка людей */
+setInterval(()=>{
+  if(!client||!client.connected||!me) return;
+  announce(true);
+  const now=Date.now();
+  let pplChanged=false;
+  /* чистим список людей: кто молчит дольше 30 сек без визитки-сигнала — исчезает */
+  for(const u in people){
+    const s=lastSeen[u];
+    if(!s||now-s>30000){ delete people[u]; pplChanged=true; }
+  }
+  for(const u in lastSeen){
+    if(lastSeen[u]&&now-lastSeen[u]>OFFLINE_MS) lastSeen[u]=0;
+  }
+  if(pplChanged&&tab==='people') drawCurrent();
+  updateDots(); updateChatStatus();
+},HB_MS);
+
+function isOnline(u){ const s=lastSeen[u.toLowerCase()]; return !!s&&Date.now()-s<OFFLINE_MS; }
+function setMeLine(on,txt){
+  $('me-line').innerHTML=on?'<b>● в сети</b> · @'+esc(me.user)+' · людей в сети: '+Object.keys(people).length:'● '+txt+' · @'+esc(me.user);
+}
+function updateChatStatus(){
+  if(!chatWith) return;
+  $('c-status').innerHTML=isOnline(chatWith.user)?'<b>● в сети</b>':'● офлайн';
+}
+function updateDots(){
+  document.querySelectorAll('#list-body .dot').forEach(d=>{
+    d.className='dot'+(isOnline(d.dataset.u)?' on':'');
+  });
+}
+
+/* ===== Вкладки: Люди / Чаты ===== */
+function setTab(t){
+  tab=t;
+  $('tab-people').classList.toggle('on',t==='people');
+  $('tab-chats').classList.toggle('on',t==='chats');
+  drawCurrent();
+}
+function drawCurrent(){
+  $('me-ava').textContent=me.user[0].toUpperCase();
+  $('me-ava').setAttribute('style',avaCss(me.user));
+  setMeLine(ready,'подключение…');
+  tab==='people'?drawPeople():drawChats();
+}
+
+function drawPeople(){
+  const q=($('search').value||'').toLowerCase();
+  const box=$('list-body'); box.innerHTML='';
+  const list=Object.values(people).filter(p=>p.user.toLowerCase()!==me.user.toLowerCase()&&p.user.toLowerCase().includes(q));
+  if(!list.length){
+    box.innerHTML='<p class="dim" style="padding:24px;text-align:center">'+
+      (q?'Никого не найдено':'Пока ты один в сети. Расскажи друзьям про NOVA — они появятся здесь, как только войдут!')+'</p>';
+    return;
+  }
+  let html='<div class="sect">Все в сети ('+list.length+')</div>';
+  list.forEach(p=>{
+    html+='<div class="row" onclick="openChat(\''+esc(p.user)+'\')">'+
+      '<div class="ava" style="'+avaCss(p.user)+'">'+esc(p.user[0].toUpperCase())+'</div>'+
+      '<div style="flex:1"><div style="font-weight:700">@'+esc(p.user)+'</div>'+
+      '<div class="dim">'+(isOnline(p.user)?'в сети':'был(а) недавно')+'</div></div>'+
+      '<span class="dot'+(isOnline(p.user)?' on':'')+'" data-u="'+esc(p.user.toLowerCase())+'"></span></div>';
+  });
+  box.innerHTML=html;
+}
+
+function drawChats(){
+  const q=($('search').value||'').toLowerCase();
+  const box=$('list-body'); box.innerHTML='';
+  const cs=contactsCache.filter(c=>c.user.toLowerCase().includes(q));
+  if(!cs.length){
+    box.innerHTML='<p class="dim" style="padding:24px;text-align:center">Чатов пока нет. Открой вкладку «Люди» и напиши кому-нибудь!</p>';
+    return;
+  }
+  let html='<div class="sect">Мои чаты</div>';
+  cs.forEach(c=>{
+    const last=LS.get(chatKey(c.user),[]).slice(-1)[0];
+    const preview=last?((last.from.toLowerCase()===me.user.toLowerCase()?'Вы: ':'')+esc(last.text||'').slice(0,34)):'нет сообщений';
+    html+='<div class="row" onclick="openChat(\''+esc(c.user)+'\')">'+
+      '<div class="ava" style="'+avaCss(c.user)+'">'+esc(c.user[0].toUpperCase())+'</div>'+
+      '<div style="flex:1;min-width:0"><div style="font-weight:700">@'+esc(c.user)+'</div>'+
+      '<div class="dim" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+preview+'</div></div>'+
+      '<span class="dot'+(isOnline(c.user)?' on':'')+'" data-u="'+esc(c.user.toLowerCase())+'"></span></div>';
+  });
+  box.innerHTML=html;
+}
+
+/* ===== Чат ===== */
+function openChat(u){
+  if(u.toLowerCase()===me.user.toLowerCase()) return;
+  chatWith={user:u};
+  $('c-title').textContent='@'+u;
+  $('c-ava').textContent=u[0].toUpperCase();
+  $('c-ava').setAttribute('style',avaCss(u)+';width:38px;height:38px;font-size:.95rem');
+  $('msgs').innerHTML='';
+  LS.get(chatKey(u),[]).forEach(drawMsg);
+  updateChatStatus();
+  show('scr-chat');
+  if(client&&client.connected){
+    client.subscribe(chatTopic(me.user,u));
+    if(!contactsCache.find(c=>c.user.toLowerCase()===u.toLowerCase())){
+      contactsCache.push({user:u}); LS.set('contacts',contactsCache);
+    }
+    syncHistory(u);
+  }
+}
+function drawMsg(m){
+  const mine=m.from.toLowerCase()===me.user.toLowerCase();
+  $('msgs').insertAdjacentHTML('beforeend',
+    '<div class="mrow '+(mine?'me':'ot')+'"><div class="msg">'+esc(m.text||'')+
+    '<div class="mtime">'+esc(m.time||'')+'</div></div></div>');
+  $('msgs').scrollTop=$('msgs').scrollHeight;
+}
+function backList(){ drawCurrent(); show('scr-list'); }
+function sendMsg(){
+  const t=$('inp').value.trim(); if(!t) return;
+  pushTo({from:me.user,to:chatWith.user,text:t});
+  $('inp').value='';
+}
+
+window.addEventListener('resize',()=>{ if(chatWith&&$('msgs')) $('msgs').scrollTop=$('msgs').scrollHeight; });
+
+/* Автовход по сохранённому юзу и паролю */
+(async function(){
+  const saved=LS.get('me',null);
+  if(!saved) return;
+  me=saved; contactsCache=LS.get('contacts',[]);
+  show('scr-list'); drawCurrent();
+  if(!await ensureMqtt()){ setMeLine(false,'нет сети — обнови страницу'); return; }
+  /* если на этом устройстве нет пароля юза — просим войти заново */
+  if(!LS.get('pw_'+me.user.toLowerCase(),null)){ LS.set('me',null); me=null; show('scr-auth'); return; }
+  connect();
+})();
+</script>
+</body>
+</html>
